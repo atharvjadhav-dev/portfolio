@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Atharv Jadhav — Cloud & DevOps Engineering Portfolio
 
-## Getting Started
+**Live Production Site:** [https://atharvjadhav.xyz](https://atharvjadhav.xyz)
 
-First, run the development server:
+A terminal-inspired, GitHub-integrated cloud & DevOps engineering portfolio engineered with **Next.js (Static Export)**, **TypeScript**, and **Tailwind CSS**, deployed on **AWS** using **Amazon S3**, **Amazon CloudFront (OAC)**, **Route 53**, **AWS Certificate Manager (ACM)**, **AWS Lambda**, **Amazon API Gateway**, and **GitHub Actions OIDC CI/CD**.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## Architecture Overview
+
+```text
+Visitor (HTTPS)
+   │
+   ▼
+Amazon Route 53 (DNS Hosted Zone: atharvjadhav.xyz)
+   │
+   ├──► Amazon CloudFront CDN (TLS 1.3 via ACM + Origin Access Control)
+   │       │
+   │       ▼
+   │    Amazon S3 Bucket (100% Private Static Origin: s3://atharvjadhav-portfolio-xyz)
+   │
+   └──► Amazon API Gateway (HTTP API + CORS)
+           │
+           ▼
+        AWS Lambda (Node.js 20 Serverless Contact Handler + CloudWatch Logs)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## CI/CD Pipeline (GitHub Actions + AWS OIDC)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Every push to the `main` branch automatically triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
-## Learn More
+1. **Build & Typecheck (`build-and-validate`):**
+   - Installs dependencies (`npm ci`)
+   - Validates TypeScript types (`npx tsc --noEmit`)
+   - Generates static production bundle (`npm run build` -> `out/`)
+2. **Passwordless AWS Authentication (OIDC):**
+   - Assumes IAM Role `arn:aws:iam::081897152686:role/github-actions-portfolio-deploy` via `token.actions.githubusercontent.com` without storing long-lived AWS access keys.
+3. **Zero-Downtime Deployment (`deploy-aws`):**
+   - Syncs `out/` to `s3://atharvjadhav-portfolio-xyz --delete`
+   - Packages & updates the `atharv-portfolio-contact` AWS Lambda function (`lambda/index.mjs`)
+   - Invalidates the CloudFront edge cache (`/*`) on distribution `E23PAC00CHNLAL`
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Local Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Install dependencies
+npm install
 
-## Deploy on Vercel
+# Run local development server
+npm run dev
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Build static production export
+npm run build
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Configuration & Content
+
+All portfolio data is modularized and strongly typed under `src/data/`:
+- `src/data/profile.ts` — Personal summary, availability badge, and terminal metadata
+- `src/data/skills.ts` — Categorized cloud, container, IaC, Linux/networking, and observability stack
+- `src/data/projects.ts` — Featured engineering projects and deep-dive architectural case studies
+- `src/data/repos.ts` — Fallback repository metadata for the live GitHub REST API integration
+- `src/data/socials.ts` — Contact links andserverless API Gateway endpoint configuration

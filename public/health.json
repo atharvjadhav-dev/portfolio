@@ -1,0 +1,13 @@
+{
+  "status": "healthy",
+  "service": "atharv-portfolio",
+  "environment": "production",
+  "cdn": "Amazon CloudFront",
+  "storage": "Amazon S3",
+  "domain": "atharvjadhav.xyz",
+  "checks": {
+    "dns": "operational",
+    "cdn": "operational",
+    "edge": "active"
+  }
+}

@@ -1,0 +1,92 @@
+name: Deploy Portfolio to AWS (S3 + CloudFront + Lambda)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  S3_BUCKET: atharvjadhav-portfolio-xyz
+  CLOUDFRONT_DISTRIBUTION_ID: E23PAC00CHNLAL
+  LAMBDA_FUNCTION_NAME: atharv-portfolio-contact
+  AWS_ROLE_ARN: arn:aws:iam::081897152686:role/github-actions-portfolio-deploy
+
+jobs:
+  build-and-validate:
+    name: Build & Typecheck (Next.js Static Export)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Build static production bundle
+        run: npm run build
+
+      - name: Upload static build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-static-out
+          path: out/
+          retention-days: 3
+
+  deploy-aws:
+    name: Deploy to AWS (S3, Lambda & CloudFront)
+    needs: build-and-validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://atharvjadhav.xyz
+    steps:
+      - name: Checkout repository (for Lambda source)
+        uses: actions/checkout@v4
+
+      - name: Download static build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: portfolio-static-out
+          path: out/
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync static assets to S3
+        run: |
+          aws s3 sync out/ s3://${{ env.S3_BUCKET }} --delete
+
+      - name: Package & Update Contact Lambda Function
+        run: |
+          zip -j lambda.zip lambda/index.mjs
+          aws lambda update-function-code \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://lambda.zip
+
+      - name: Invalidate CloudFront CDN Cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
