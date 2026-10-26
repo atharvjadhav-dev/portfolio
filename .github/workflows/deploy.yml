@@ -18,7 +18,7 @@ env:
   S3_BUCKET: atharvjadhav-portfolio-xyz
   CLOUDFRONT_DISTRIBUTION_ID: E23PAC00CHNLAL
   LAMBDA_FUNCTION_NAME: atharv-portfolio-contact
-  AWS_ROLE_ARN: arn:aws:iam::081897152686:role/github-actions-portfolio-deploy
+  IAM_ROLE_ARN: arn:aws:iam::081897152686:role/github-actions-portfolio-deploy
 
 jobs:
   build-and-validate:
@@ -71,7 +71,7 @@ jobs:
       - name: Configure AWS Credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-to-assume: ${{ env.IAM_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Sync static assets to S3
